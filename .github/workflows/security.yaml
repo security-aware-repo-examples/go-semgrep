@@ -1,0 +1,31 @@
+name: Run security tests
+
+on:
+  pull_request:
+
+jobs:
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v2
+      - name: Set up reviewdog
+        run: |
+          wget -O - -q https://raw.githubusercontent.com/reviewdog/reviewdog/master/install.sh \
+            | sh -s -- -b $(pwd)
+      - name: Run semgrep and reviewdog
+        env:
+          REVIEWDOG_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          docker run \
+            -v $(pwd):/workdir \
+            --workdir /workdir \
+            returntocorp/semgrep:8b25353370bc1b35dd4a4fb40ed02abc69a2e0dd \
+            --json --config p/gosec -f /workdir/.semgrep /workdir \
+          | jq -r '.results[] | "\(.path):\(.start.line):\(.start.col): \(.extra.message)"' \
+          | sed 's#^/workdir/##' \
+          | ./reviewdog \
+            -efm="%f:%l:%c: %m" \
+            -diff="git diff ${{ github.event.pull_request.base.ref }}" \
+            -level=warning \
+            -reporter=github-pr-review

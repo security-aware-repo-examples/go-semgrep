@@ -1,0 +1,11 @@
+rules:
+  - id: raw_sql
+    languages:
+      - go
+    pattern: |
+      $X = fmt.Sprintf($Q, ...)
+      ...
+      db.Raw($X)
+    message: |
+      A raw query is used: $Q.
+    severity: WARNING
